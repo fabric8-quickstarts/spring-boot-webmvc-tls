@@ -15,6 +15,11 @@
  */
 package io.fabric8.quickstarts.springbootmvc;
 
+import org.apache.http.client.HttpClient;
+import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
+import org.apache.http.conn.ssl.SSLContextBuilder;
+import org.apache.http.conn.ssl.TrustSelfSignedStrategy;
+import org.apache.http.impl.client.HttpClients;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -25,18 +30,25 @@ import org.springframework.boot.context.embedded.EmbeddedWebApplicationContext;
 import org.springframework.boot.test.IntegrationTest;
 import org.springframework.boot.test.SpringApplicationConfiguration;
 import org.springframework.boot.test.TestRestTemplate;
+import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import org.springframework.test.context.web.WebAppConfiguration;
 import org.springframework.web.client.RestTemplate;
 
+import java.security.KeyManagementException;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+
 @RunWith(SpringJUnit4ClassRunner.class)
-@SpringApplicationConfiguration(classes = {IpRestApiTest.class, App.class})
+@SpringApplicationConfiguration(classes = { IpRestApiTest.class, App.class })
 @WebAppConfiguration
-@IntegrationTest("server.port:0")
+@IntegrationTest()
+@TestPropertySource(locations = "classpath:application-test.properties")
 @EnableAutoConfiguration
 public class IpRestApiTest extends Assert {
 
-    private RestTemplate rest = new TestRestTemplate();
+    private RestTemplate rest;
 
     @Autowired
     EmbeddedWebApplicationContext tomcat;
@@ -45,9 +57,17 @@ public class IpRestApiTest extends Assert {
     String baseUri;
 
     @Before
-    public void before() {
+    public void before() throws KeyStoreException, NoSuchAlgorithmException, KeyManagementException {
         port = tomcat.getEmbeddedServletContainer().getPort();
-        baseUri = "http://localhost:" + port;
+        baseUri = "https://localhost:" + port;
+
+        SSLConnectionSocketFactory socketFactory = new SSLConnectionSocketFactory(new SSLContextBuilder().loadTrustMaterial(null, new TrustSelfSignedStrategy()).build());
+
+        HttpClient httpClient = HttpClients.custom().setSSLSocketFactory(socketFactory).build();
+
+        RestTemplate template = new TestRestTemplate();
+        ((HttpComponentsClientHttpRequestFactory) template.getRequestFactory()).setHttpClient(httpClient);
+        this.rest = template;
     }
 
     @Test
